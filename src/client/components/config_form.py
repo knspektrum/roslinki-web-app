@@ -18,7 +18,9 @@ def callback_generator(chamber: str, reader: list[Field]) -> Callable:
         with config:
             config.set(**form_values)
             config.save()
-            config.arduino = create_arduino_controller(f"{chamber}-port")
+            config.arduino = create_arduino_controller(
+                st.session_state[f"{chamber}-port"]
+            )
         logger.info(
             "Parameters has been changed to:\n\t"
             + "\n\t".join(
@@ -31,7 +33,7 @@ def callback_generator(chamber: str, reader: list[Field]) -> Callable:
 
 def config_form(chamber: str):
     port_map: dict[str, ListPortInfo | None] = {"None": None} | {
-        str(port): port for port in comports()
+        port.device: port for port in comports()
     }
     port_list = list(port_map.keys())
     config = get_shared()[chamber]

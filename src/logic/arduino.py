@@ -1,6 +1,7 @@
 import logging
 from typing import Literal
 import serial
+import streamlit as st
 from client.utils import get_logger
 
 ARDUINO_COMMAND = Literal[
@@ -18,7 +19,7 @@ class BaseArduinoController:
     def __init__(self, port: str, baudrate: int = 9600, timeout: float = 10): ...
     def bump(self) -> bool: ...
     def measurement(self) -> tuple[float, float, float]: ...
-    def command(self, command: bytes | ARDUINO_COMMAND) -> None | str: ...
+    def command(self, command: bytes | ARDUINO_COMMAND) -> str: ...
 
 
 class MockArduinoController(BaseArduinoController):
@@ -30,15 +31,15 @@ class MockArduinoController(BaseArduinoController):
 
     def bump(self) -> bool:
         response = "BUMP"
-        self.logger.info(f"Arduino bumped, {response = }")
+        self.logger.debug(f"Arduino bumped, {response = }")
         return response == "BUMP"
 
     def measurement(self) -> tuple[float, float, float]:
         response = "BUMP"
-        self.logger.info(f"Arduino bumped, {response = }")
-        return 10, 10, 10
+        self.logger.debug(f"Arduino bumped, {response = }")
+        return 0, 0, 0
 
-    def command(self, command: bytes | ARDUINO_COMMAND) -> None | str:
+    def command(self, command: bytes | ARDUINO_COMMAND) -> str:
         self.logger.debug(f"Command: {command}")
         return f"result of {command}"
 
@@ -57,10 +58,18 @@ class ArduinoController(BaseArduinoController):
 
     def bump(self) -> bool:
         response = self.command("bump")
-        self.logger.info(f"Arduino bumped, {response = }")
+        self.logger.debug(f"Arduino bumped, {response = }")
         return response == "BUMP"
 
-    def command(self, command: bytes | ARDUINO_COMMAND) -> None | str:
+    def measurement(self) -> tuple[float, float, float]:
+        response = self.command("read")
+        temperature = float(response[:5])
+        humidity = float(response[5:10])
+        light_intensity = float(response[10:15])
+        self.logger.debug(f"Arduino measurement, {response = }")
+        return temperature, humidity, light_intensity
+
+    def command(self, command: bytes | ARDUINO_COMMAND) -> str:
         """Simple command for arduino control
 
         Arduino interface:
@@ -82,6 +91,7 @@ class ArduinoController(BaseArduinoController):
             self.ser.reset_input_buffer()
             response: bytes = self.ser.readline()
             return response.decode().strip()
+        return ""
 
 
 def create_arduino_controller(port: str) -> BaseArduinoController:
@@ -93,4 +103,5 @@ def create_arduino_controller(port: str) -> BaseArduinoController:
         get_logger("Create arduino controller").error(
             f"Connecting to port: {port} has failed!"
         )
+        st.error(f"Setting port: {port} failed")
         return MockArduinoController("None")

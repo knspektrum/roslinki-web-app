@@ -139,11 +139,13 @@ class ChamberConfig:
 class Chamber:
     def __init__(self, config: ChamberConfig):
         self.config: ChamberConfig = config
+        with self.config:
+            self.name = self.config.name
         self.logger = get_logger(self.config.name)
 
         self.watering_next_run = datetime.now(timezone.utc)
         self.light_next_run = datetime.now(timezone.utc)
-        self.get_params_next_run = datetime.now(timezone.utc)
+        self.read_sensors_next_run = datetime.now(timezone.utc)
 
     def read_from_sensors(
         self, add_to_database: bool = False
@@ -151,11 +153,16 @@ class Chamber:
         with self.config:
             temperature, humidity, light_intensity = self.config.arduino.measurement()
         if add_to_database:
+            with self.config:
+                self.read_sensors_next_run += timedelta(
+                    seconds=self.config.sensor_delay
+                )
             measurement = Measurements(
-                datetime.now(timezone.utc),
-                temperature,
-                humidity,
-                light_intensity,
+                chamber_name=self.name,
+                date=datetime.now(timezone.utc),
+                temperature=temperature,
+                humidity=humidity,
+                light_intensity=light_intensity,
             )
             with SESSION() as session:
                 session.add(measurement)
@@ -189,6 +196,10 @@ class ChamberManager:
         self.chambers = {name: Chamber(config) for name, config in configs.items()}
 
     def scheduler_loop(self):
+        next_bump = {
+            chamber.name: datetime.now(timezone.utc)
+            for chamber in self.chambers.values()
+        }
         while True:
             for chamber in self.chambers.values():
                 current_time = datetime.now(timezone.utc)
@@ -196,4 +207,13 @@ class ChamberManager:
                     chamber.water_plants()
                 if current_time >= chamber.light_next_run:
                     chamber.light_switch()
+                if current_time >= chamber.read_sensors_next_run:
+                    chamber.read_from_sensors(add_to_database=True)
+                if current_time >= next_bump[chamber.name]:
+                    logger = get_logger(f"Bumper-{chamber.name}")
+                    with chamber.config:
+                        logger.debug(chamber.config.arduino.bump())
+                    next_bump[chamber.name] += timedelta(seconds=20)
+                    logger.debug(f"Sensor results: {chamber.read_from_sensors(True)}")
+
             time.sleep(0.5)

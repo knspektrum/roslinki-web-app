@@ -18,7 +18,10 @@ def callback_generator(chamber: str, reader: list[Field]) -> Callable:
         with config:
             config.set(**form_values)
             config.save()
-            config.arduino = create_arduino_controller(f"{chamber}-port")
+            config.arduino = create_arduino_controller(
+                st.session_state[f"{chamber}-port"]
+            )
+            config.raspberry.url = st.session_state[f"{chamber}-rpi-address"]
         logger.info(
             "Parameters has been changed to:\n\t"
             + "\n\t".join(
@@ -39,6 +42,7 @@ def config_form(chamber: str):
         with config:
             reader = config.reader()
             port = config.arduino.port
+            rpi_address = config.raspberry.url
         try:
             starting_index = port_list.index(port)
         except ValueError:
@@ -57,6 +61,12 @@ def config_form(chamber: str):
                     placeholder="Type a number...",
                     key=f"{chamber}-{field.name}",
                 )
+            st.text_input(
+                "Raspberry PI address",
+                value=rpi_address,
+                placeholder="127.0.0.1:5003",
+                key=f"{chamber}-rpi-address",
+            )
         with cols[1]:
             for field in reader[n:]:
                 st.number_input(

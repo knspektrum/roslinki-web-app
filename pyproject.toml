@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 authors = [{ name = "Dawid Siera" }]
 dependencies = [
+    "flask>=3.1.2",
     "pascal-voc-writer>=0.1.4",
     "pyserial>=3.5",
     "sqlalchemy>=2.0.44",

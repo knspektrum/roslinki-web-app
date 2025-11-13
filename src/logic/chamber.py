@@ -7,6 +7,7 @@ from client.utils import get_logger
 from logic import ChamberParameters, SESSION
 from logic.database import Measurements
 from .arduino import BaseArduinoController, create_arduino_controller
+from .raspberry import RaspberryController
 
 
 @dataclass
@@ -35,6 +36,7 @@ class ChamberConfig:
         self.sensor_delay = sensor_delay
 
         self.arduino = create_arduino_controller("None")
+        self.raspberry = RaspberryController(img_dir=f"{name}-images")
 
     def reader(self) -> list[Field]:
         return [

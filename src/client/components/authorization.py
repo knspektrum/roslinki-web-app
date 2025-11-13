@@ -1,5 +1,5 @@
 from collections.abc import Callable
-import os
+from pathlib import Path
 from typing import Literal
 import yaml
 import streamlit_authenticator as stauth
@@ -7,7 +7,7 @@ import streamlit as st
 
 st.session_state["logout"] = None
 
-with open(os.path.join("..", ".secrets", "config.yaml")) as file:
+with open(Path(".secrets", "config.yaml")) as file:
     _config = yaml.load(file, Loader=yaml.SafeLoader)
 
 RANKS = Literal["admin", "maintainer", "user"]

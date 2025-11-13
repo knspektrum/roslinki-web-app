@@ -6,7 +6,7 @@ from logic.shared import get_shared, start_chamber_manager
 
 logging.basicConfig(level=logging.DEBUG)
 
-static = Path("client", "static")
+static = Path("src", "client", "static")
 pages = Path("client", "pages")
 
 start_chamber_manager(get_shared())  # Required to initialize chamber object

@@ -13,11 +13,13 @@ class RaspberryController:
         self,
         url: str = "127.0.0.1",
         port: int = 5003,
-        img_dir: str = "Photos",
+        img_dir: str | Path | None = None,
     ):
         self._url = url
         self.port = port
         self.logger = get_logger(f"RPI-{url}")
+        if img_dir is None:
+            img_dir = Path("data", "photos")
         self.img_dir = Path(img_dir)
         os.makedirs(img_dir, exist_ok=True)
 
@@ -27,7 +29,10 @@ class RaspberryController:
 
     @url.setter
     def url(self, address: str):
-        self._url, self.port = address.split(":")
+        if ":" in address:
+            self._url, self.port = address.split(":")
+        else:
+            self._url = address
 
     def capture_photo(self, filename: str | None = None) -> Path | None:
         try:

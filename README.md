@@ -1,5 +1,1 @@
-# Plant Chamber Web App
-
-## Uruchamianie
-
-TODO: opisać proces uruchamiania
+# Branch służący do przechowywania pozostałych plików związanych z projektem

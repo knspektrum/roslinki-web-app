@@ -1,1 +1,2 @@
-# Branch służący do przechowywania pozostałych plików związanych z projektem
+# Branch misc
+## Tu wrzucamy pozostałe pliki związane z projektem

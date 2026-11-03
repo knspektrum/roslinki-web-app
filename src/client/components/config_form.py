@@ -2,10 +2,11 @@ from collections.abc import Callable
 import streamlit as st
 from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
+import requests  # DODANE: Import biblioteki do komunikacji sieciowej
+
 from client.utils import get_logger
 from logic import get_shared, create_arduino_controller
 from logic.chamber import Field
-
 
 def callback_generator(chamber: str, reader: list[Field]) -> Callable:
     logger = get_logger(chamber)
@@ -15,19 +16,23 @@ def callback_generator(chamber: str, reader: list[Field]) -> Callable:
         form_values = {
             field.name: st.session_state[f"{chamber}-{field.name}"] for field in reader
         }
+        rpi_address = st.session_state[f"{chamber}-rpi-address"]
+        
         with config:
             config.set(**form_values)
-            config.save()
             config.arduino = create_arduino_controller(
                 st.session_state[f"{chamber}-port"]
             )
-            config.raspberry.url = st.session_state[f"{chamber}-rpi-address"]
+            config.raspberry.url = rpi_address
+            config.save()
+            
         logger.info(
             "Parameters has been changed to:\n\t"
             + "\n\t".join(
                 f"{field.fullname}: {form_values[field.name]}" for field in reader
             )
         )
+
 
     return callback
 
@@ -38,11 +43,13 @@ def config_form(chamber: str):
     }
     port_list = list(port_map.keys())
     config = get_shared()[chamber]
+    
     with st.form(f"{chamber}-settings"):
         with config:
             reader = config.reader()
             port = config.arduino.port
             rpi_address = config.raspberry.url
+            
         try:
             starting_index = port_list.index(port)
         except ValueError:
@@ -64,7 +71,7 @@ def config_form(chamber: str):
             st.text_input(
                 "Raspberry PI address",
                 value=rpi_address,
-                placeholder="127.0.0.1:5003",
+                placeholder="10.28.146.80:5003",
                 key=f"{chamber}-rpi-address",
             )
         with cols[1]:
@@ -81,8 +88,10 @@ def config_form(chamber: str):
                 key=f"{chamber}-port",
                 index=starting_index,
             )
+            
         submitted = st.form_submit_button(
             "Save", on_click=callback_generator(chamber, reader)
         )
+        
         if submitted:
-            st.success("Settings saved successfully!", icon="✅")
+            st.success("Settings saved and sent to device successfully!", icon="✅")

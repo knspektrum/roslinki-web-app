@@ -3,6 +3,7 @@ import requests
 import os
 from pathlib import Path
 
+from datetime import datetime, timedelta
 from client.utils import get_logger
 
 
@@ -32,15 +33,15 @@ class RaspberryController:
     def capture_photo(self, filename: str | None = None) -> Path | None:
         try:
             r = requests.post(f"http://{self.url}/capture", timeout=30)
-        except Exception:
+        except Exception as e:
+            self.logger.error(f"Sygnał nie dotarł do Malinki! Przyczyna: {e}")
             return None
         if r.status_code != 200:
             self.logger.error("Unexpected error")
             return None
 
         if filename is None:
-            # TODO: auto generation using current datetime
-            filename = "test.jpg"
+            filename = f"photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
 
         path = self.img_dir / filename
         with open(path, "wb") as f:

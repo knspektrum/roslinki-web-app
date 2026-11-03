@@ -23,14 +23,25 @@ class ChamberParameters(Base):
     chamber_name: Mapped[str] = mapped_column(index=True)
 
     date: Mapped[datetime]
-    watering_interval: Mapped[int]
-    watering_quantity: Mapped[int]
+    
+    # --- NOWE KOLUMNY HARMONOGRAMU ---
+    light_start_hour: Mapped[int]
+    light_start_minute: Mapped[int]      # DODANE: minuty startu
+    light_duration_hours: Mapped[int]
+    light_duration_minutes: Mapped[int]  # DODANE: minuty trwania
+    pump_start_hour: Mapped[int]
+    pump_duration_seconds: Mapped[int]
+    
+    # --- POZOSTAWIONE KOLUMNY CZASOWE ---
     camera_frequency: Mapped[int]
-    light_time: Mapped[int]
     sensor_delay: Mapped[int]
 
     def __repr__(self) -> str:
-        return f"<{self.date} | {self.chamber_name} | water: (interval={self.watering_interval}, quantity={self.watering_quantity}), camera frequency={self.camera_frequency}, light time={self.light_time}, sensor delay={self.sensor_delay}>"
+        # Używamy formatowania :02d, żeby np. minuta 5 wyświetlała się jako "05"
+        return (f"<{self.date} | {self.chamber_name} | "
+                f"Światło: {self.light_start_hour:02d}:{self.light_start_minute:02d} przez {self.light_duration_hours}h i {self.light_duration_minutes}m | "
+                f"Pompa: {self.pump_start_hour}:00 przez {self.pump_duration_seconds}s | "
+                f"Kamera: co {self.camera_frequency}s | Czujniki: co {self.sensor_delay}s>")
 
 
 class ChamberSettings(Base):

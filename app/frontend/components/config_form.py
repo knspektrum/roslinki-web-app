@@ -1,11 +1,11 @@
 from collections.abc import Callable
 import streamlit as st
-# from serial.tools.list_ports import comports
-from serial.tools.list_ports_common import ListPortInfo
+
+
 import requests  # DODANE: Import biblioteki do komunikacji sieciowej
 
 from client.utils import get_logger
-from logic import get_shared, create_arduino_controller
+from logic import get_shared
 from logic.chamber import Field
 
 def callback_generator(chamber: str, reader: list[Field]) -> Callable:
@@ -20,9 +20,6 @@ def callback_generator(chamber: str, reader: list[Field]) -> Callable:
         
         with config:
             config.set(**form_values)
-            config.arduino = create_arduino_controller(
-                st.session_state[f"{chamber}-port"]
-            )
             config.raspberry.url = rpi_address
             config.save()
             
@@ -38,25 +35,17 @@ def callback_generator(chamber: str, reader: list[Field]) -> Callable:
 
 
 def config_form(chamber: str):
-    port_map: dict[str, ListPortInfo | None] = {"None": None} | {
-        str(port): port for port in comports()
-    }
-    port_list = list(port_map.keys())
+    
+    
+    
+    
     config = get_shared()[chamber]
     
     with st.form(f"{chamber}-settings"):
         with config:
             reader = config.reader()
-            port = config.arduino.port
-            rpi_address = config.raspberry.url
             
-        try:
-            starting_index = port_list.index(port)
-        except ValueError:
-            get_logger("Port-detection").error(
-                f"Port {port} not found in available ports"
-            )
-            starting_index = 0
+            rpi_address = config.raspberry.url
 
         n = (len(reader) + 1) // 2
         cols = st.columns([1, 1])
@@ -82,12 +71,6 @@ def config_form(chamber: str):
                     placeholder="Type a number...",
                     key=f"{chamber}-{field.name}",
                 )
-            st.selectbox(
-                "Choose port",
-                port_list,
-                key=f"{chamber}-port",
-                index=starting_index,
-            )
             
         submitted = st.form_submit_button(
             "Save", on_click=callback_generator(chamber, reader)

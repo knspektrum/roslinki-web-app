@@ -1,8 +1,8 @@
 import threading
 import streamlit as st
-from logic.chamber import ChamberManager, ChamberConfig
 
-CHAMBER_NAMES = ["Chamber-1", "Chamber-2"]
+from app import CHAMBER_NAMES
+from app.logic.chamber.chamber import ChamberManager, ChamberConfig
 
 
 def _run_chamber_manager(configs: dict[str, ChamberConfig]):
@@ -17,7 +17,7 @@ def start_chamber_manager(configs: dict[str, ChamberConfig]):
         )
         thread.start()
 
-        start_chamber_manager._started = True  # type: ignore
+        start_chamber_manager._started = True
 
 
 @st.cache_resource

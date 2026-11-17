@@ -1,96 +1,145 @@
-from flask import Flask, send_file, jsonify, request
+import io
+import os
 from pathlib import Path
 import subprocess
-from datetime import datetime
+
 import tempfile
-import os
-import io
-import serial
+import threading
 import time
+from datetime import datetime
+from flask import Flask, jsonify, request, send_file
+import serial
+
+
+SERVICE_VERSION = "0.1.0"
+DEFAULT_PORT = "/dev/ttyUSB0"
+BAUDRATE = 9600
 
 app = Flask(__name__)
-
-# Inicjalizacja sprzętowego portu szeregowego 
-try:
-    arduino = serial.Serial('/dev/ttyUSB0', 9600, timeout=2)
-    time.sleep(2)  # Dajemy 2 sekundy na restart Arduino po otwarciu portu
-except Exception as e:
-    print(f"[ERROR] Nie można otworzyć portu Arduino: {e}")
-    arduino = None
+serial_lock = threading.Lock()
+arduino = None
 
 
-def take_photo():
-    # 1. Wyślij komendę 'C' do Arduino, żeby zapalić białe LEDy
+def get_arduino_connection() -> None | serial.Serial:
+    """Tries to connect or re-connect to the Arduino if disconnected."""
     global arduino
-    if arduino and arduino.is_open:
-        try:
-            arduino.reset_input_buffer()
-            arduino.reset_output_buffer()
-            arduino.write(b'C')
-            arduino.flush()
-            time.sleep(0.5) # Dajmy Arduino ułamek sekundy na włączenie przekaźnika
-        except Exception as e:
-            print(f"Błąd zapalania LEDów: {e}")
+    with serial_lock:
+        if arduino and arduino.is_open:
+            return arduino
 
-    # 2. Zrób zdjęcie
+        candidate_ports = [DEFAULT_PORT, "/dev/ttyACM0", "/dev/ttyUSB1"]
+        for port in candidate_ports:
+            try:
+                arduino = serial.Serial(port, BAUDRATE, timeout=2)
+                time.sleep(2)
+                print(f"[INFO] Connected to Arduino on {port}") #!---- Zmiana na logger ----
+                return arduino
+            
+            except Exception:
+                continue
+        arduino = None
+        return None
+    
+    
+def take_photo() -> Path:
+    dev = get_arduino_connection()
+    with serial_lock:
+        if dev and dev.is_open:
+            try:
+                dev.reset_input_buffer()
+                dev.reset_output_buffer()
+                dev.write(b'C')
+                dev.flush()
+                time.sleep(0.5)
+                
+            except Exception as e:
+                print(f"[ERROR] Failed to turn on camera LEDs: {e}") #!---- Zmiana na logger ----
+    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     tmp_dir = Path(tempfile.gettempdir())
     filename = tmp_dir / f"photo_{timestamp}.jpg"
-    cmd = ["rpicam-still", "--width", "4056", "--height", "3040", "-o", str(filename), "-n"]
-    subprocess.run(cmd, check=True)
-    if arduino and arduino.is_open:
-        try:
-            arduino.write(b'X')
-            arduino.flush()
-        except Exception as e:
-            print(f"Bład gaszenia led {e}")
+    cam_tool = "rpicam-still" if subprocess.run(["which", "rpicam-still"], capture_output=True).returncode == 0 else "libcamera-still"
+    cmd = [cam_tool, "--width", "4056", "--height", "3040", "-o", str(filename), "-n"]
+    
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        with serial_lock:
+            if dev and dev.is_open:
+                try:
+                    dev.write(b'X')
+                    dev.flush()
+                    
+                except Exception as e:
+                    print(f"[ERROR] Failed to restore normal lights: {e}")
     return filename
 
+
+@app.route("/health", methods=["GET"])
+def health():
+    dev = get_arduino_connection()
+    return jsonify({
+        "status": "ok",
+        "version": SERVICE_VERSION,
+        "arduino_connected": bool(dev and dev.is_open),
+        "port": dev.port if (dev and dev.is_open) else None,
+    }), 200
+    
+    
 @app.route("/capture", methods=["POST"])
 def capture():
     try:
         filename = take_photo()
-        with open(filename, 'rb') as f:
+        with open(filename, "rb") as f:
             bufor_zdjecia = io.BytesIO(f.read())
         os.remove(filename)
         return send_file(bufor_zdjecia, mimetype="image/jpeg")
+    
     except subprocess.CalledProcessError as e:
-        return jsonify({"status": "error", "error": f"Capture failed: {e}"}), 500
+        return jsonify(
+            {"status": "error", "error": f"Camera capture failed: {e}"}
+        ), 500
     except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 501
-
+        return jsonify(
+            {"status": "error", "error": str(e)}
+        ), 500
+    
+    
 @app.route("/bump", methods=["POST"])
 def bump():
     return "Bump", 200
 
 
-@app.route('/arduino', methods=['POST'])
+@app.route("/arduino", methods=["POST"])
 def arduino_command():
-    if not arduino or not arduino.is_open:
-        return jsonify({"status": "error", "error": "Brak fizycznego połączenia z Arduino"}), 500
+    dev = get_arduino_connection()
+    if not dev or not dev.is_open:
+        return jsonify(
+            {"status": "error", "error": "No physical connection to Arduino"}
+        ), 500
     
-    data = request.get_json()
-    cmd = data.get('cmd', '')
-    
-    try:
-        # 1. Czyszczenie buforów i wysłanie komendy (np. "L", "R", "P 5.5")
-        arduino.reset_input_buffer()
-        arduino.reset_output_buffer()
-        arduino.write(cmd.encode('utf-8'))
-        arduino.flush()
-        
-        # 2. Obsługa odpowiedzi dla komend, które faktycznie coś zwracają (Sensory i Bump)
-        if cmd in ['R', 'B']:
-            # Czekamy na odpowiedź z mikrokontrolera
-            response = arduino.readline().decode('utf-8').strip()
-            return jsonify({"status": "ok", "response": response})
+    data = request.get_json() or {}
+    cmd = data.get("cmd", "")
+    with serial_lock:
+        try:
+            dev.reset_input_buffer()
+            dev.reset_output_buffer()
+            dev.write(cmd.encode("utf-8"))
+            dev.flush()
             
-        # 3. Dla pozostałych komend wykonawczych (światło, woda) po prostu zgłaszamy sukces
-        return jsonify({"status": "ok", "response": f"Wykonano: {cmd}"})
+            if cmd in ["R", "B"]: #---- "R" - Read ;"B" - Bump ----
+                response = dev.readline().decode("utf-8").strip()
+                return jsonify({"status": "ok", "response": response})
+            return jsonify(
+                {"status": "ok", "response": f"Executed: {cmd}"}
+            )
+            
+        except Exception as e:
+            return jsonify(
+                {"status": "error", "error": str(e)}
+            ), 500
         
-    except Exception as e:
-        return jsonify({"status": "error", "error": str(e)}), 500
-
-
+        
 if __name__ == "__main__":
+    get_arduino_connection()
     app.run(host="0.0.0.0", port=5003)

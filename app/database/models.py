@@ -33,19 +33,6 @@ class ChamberParameters(Base):
                 f"Pompa: {self.pump_start_hour}:00 przez {self.pump_duration_seconds}s | "
                 f"Kamera: co {self.camera_frequency}s | Czujniki: co {self.sensor_delay}s>")
 
-
-# [DEPRECATED] ChamberSettings is obsolete:
-# It stored local host serial ports (arduino_port). With the Raspberry Pi architecture,
-# Arduino is connected to the RPi (/dev/ttyUSB0), and the app connects over HTTP to the RPi.
-# Chamber parameters and schedule are stored in ChamberParameters.
-# class ChamberSettings(Base):
-#     __tablename__ = "chamber_settings"
-#     id: Mapped[int] = mapped_column(primary_key=True, index=True, unique=True)
-#     chamber_name: Mapped[str] = mapped_column(index=True)
-
-#     arduino_port: Mapped[str]
-
-
 class Measurements(Base):
     __tablename__ = "measurements"
     id: Mapped[int] = mapped_column(primary_key=True, index=True, unique=True)

@@ -1,24 +1,24 @@
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-import threading
 import time
-import requests
 from typing import Any
-from depracated.utils import get_logger
-from depracated.src.logic import ChamberParameters, SESSION
-from logic.database import Measurements
-# [DEPRECATED] BaseArduinoController & create_arduino_controller are legacy host-serial controllers.
-# All commands now go through self.raspberry (RaspberryController) over HTTP REST.
-from .arduino import BaseArduinoController, create_arduino_controller
-from .raspberry import RaspberryController
+from dataclasses import dataclass
+
+import threading
+import requests
+from datetime import datetime, timedelta, timezone
+
+from app.frontend.utils import get_logger
+from app.database.connection import SESSION
+from app.database.models import ChamberParameters, Measurements
+from app.logic.raspberry_pi.raspberry import RaspberryController
+
 
 @dataclass
 class Field:
     name: str
     fullname: str
     value: Any
-    min_value: int | None = None  # Dodane: limit dolny
-    max_value: int | None = None  # Dodane: limit górny
+    min_value: int | None = None
+    max_value: int | None = None 
 
 
 class ChamberConfig:
@@ -37,7 +37,6 @@ class ChamberConfig:
         self.lock = threading.RLock()
         self.name = name
         
-        # Nowe pola harmonogramu
         self.light_start_hour = light_start_hour
         self.light_start_minute = light_start_minute
         self.light_duration_hours = light_duration_hours
@@ -48,9 +47,6 @@ class ChamberConfig:
         self.sensor_delay = sensor_delay
         self.camera_frequency = camera_frequency
 
-        # [DEPRECATED] self.arduino is a remnant of host-serial connection.
-        # Chamber now uses self.raspberry._send_to_rpi() to control Arduino via RPi REST API.
-        self.arduino = create_arduino_controller("None")
         self.raspberry = RaspberryController(img_dir=f"{name}-images")
 
 
@@ -70,22 +66,25 @@ class ChamberConfig:
     def set(
         self,
         light_start_hour: int | None = None,
-        light_start_minute: int | None = None,       # DODANE
+        light_start_minute: int | None = None,
         light_duration_hours: int | None = None,
-        light_duration_minutes: int | None = None,   # DODANE
+        light_duration_minutes: int | None = None,
         pump_start_hour: int | None = None,
         pump_duration_seconds: int | None = None,
         sensor_delay: int | None = None,
         camera_frequency: int | None = None,
+        rpi_address: str | None = None,
     ) -> None:
+        
         if light_start_hour is not None: self.light_start_hour = light_start_hour
-        if light_start_minute is not None: self.light_start_minute = light_start_minute             # DODANE
+        if light_start_minute is not None: self.light_start_minute = light_start_minute
         if light_duration_hours is not None: self.light_duration_hours = light_duration_hours
-        if light_duration_minutes is not None: self.light_duration_minutes = light_duration_minutes # DODANE
+        if light_duration_minutes is not None: self.light_duration_minutes = light_duration_minutes
         if pump_start_hour is not None: self.pump_start_hour = pump_start_hour
         if pump_duration_seconds is not None: self.pump_duration_seconds = pump_duration_seconds
         if sensor_delay is not None: self.sensor_delay = sensor_delay
         if camera_frequency is not None: self.camera_frequency = camera_frequency
+        if rpi_address is not None: self.raspberry.url = rpi_address
 
     @classmethod
     def load(cls, name: str) -> "ChamberConfig":
@@ -118,10 +117,8 @@ class ChamberConfig:
 
     @classmethod
     def from_config_params(cls, parameters: ChamberParameters) -> "ChamberConfig":
-        if parameters.rpi_address:
-            config.raspberry.url = parameters.rpi_address
         
-        return cls(
+        config = cls(
             name=parameters.chamber_name,
             light_start_hour=parameters.light_start_hour,
             light_start_minute=parameters.light_start_minute,
@@ -131,9 +128,12 @@ class ChamberConfig:
             pump_duration_seconds=parameters.pump_duration_seconds,
             sensor_delay=parameters.sensor_delay,
             camera_frequency=parameters.camera_frequency,
-            rpi_address = parameters.raspberry
-            
         )
+        
+        if getattr(parameters, "rpi_address", None):
+            config.raspberry.url = parameters.rpi_address
+            
+        return config
 
     def to_config_params(self) -> ChamberParameters:
         return ChamberParameters(
@@ -149,25 +149,11 @@ class ChamberConfig:
             camera_frequency=self.camera_frequency,
             rpi_address = self.raspberry.url
         )
-
-    # [DEPRECATED] Host-level arduino getter/setter. Replaced by RaspberryController.
-    @property
-    def arduino(self):
-        return self._arduino
-
-    @arduino.setter
-    def arduino(self, arduino_controller: BaseArduinoController):
-        if "_arduino" in self.__dict__:
-            self._arduino.logger.warning("Detached!")
-        self._arduino = arduino_controller
-        self._arduino.logger.info(
-            f"Attached new arduino controller on: {arduino_controller.port}"
-        )
-
+    
     def __enter__(self):
         self.lock.acquire()
         return self
-
+    
     def __exit__(self, exc_type, exc_value, traceback):
         self.lock.release()
 

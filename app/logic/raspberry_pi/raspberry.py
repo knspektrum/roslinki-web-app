@@ -1,14 +1,15 @@
-import logging
-import requests
-import os
 from pathlib import Path
+from datetime import datetime
 
-from datetime import datetime, timedelta
-from depracated.utils import get_logger
+import os
+import requests
+import logging as log
+
+from app.frontend.utils import get_logger
 
 
 class RaspberryController:
-    logger: logging.Logger
+    logger: log.Logger
 
     def __init__(
         self,
@@ -48,15 +49,16 @@ class RaspberryController:
             f.write(r.content)
         return path
 
-    def bump(self) -> bool:
+    def health_check(self) -> bool:
         try:
-            r = requests.post(f"{self.url}/bump", timeout=30)
+            r = requests.post(f"{self.url}/health", timeout=30)
         except Exception:
             return False
         return r.status_code == 200
 
 
+#---- Do testowania ----
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    log.basicConfig(level=log.DEBUG)
     rpi_c = RaspberryController("127.0.0.1", 5003)
-    print("Bumped" if rpi_c.bump() else "Bump failed :(")
+    print("Bumped" if rpi_c.health_check() else "Bump failed :(")

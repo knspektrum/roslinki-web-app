@@ -27,5 +27,7 @@ DATABASE_FILE = Path(ROOT_FOLDER / "data" / "database.db")
 #---- CONSTANTS ----
 
 CHAMBER_NAMES = ["Chamber-1", "Chamber-2"]
+EXPECTED_SERVICE_VERSION = "0.1.0"
+SERVICE_VERSION = ... # Znajduje się w pliku ./services/rpi_service.py ; 
 
 #---- END CONSTANTS ----

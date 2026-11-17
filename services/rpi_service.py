@@ -138,7 +138,7 @@ def arduino_command():
             return jsonify(
                 {"status": "error", "error": str(e)}
             ), 500
-        
+
         
 if __name__ == "__main__":
     get_arduino_connection()

@@ -55,6 +55,16 @@ class RaspberryController:
         except Exception:
             return False
         return r.status_code == 200
+    
+    def check_version(self) -> dict | None:
+        try:
+            res = requests.get(f"http://{self.url}/health", timeout=15)
+            if res.status_code == 200:
+                return res.json()
+            
+        except Exception:
+            pass
+        return None
 
 
 #---- Do testowania ----

@@ -4,9 +4,11 @@ import threading
 import time
 import requests
 from typing import Any
-from client.utils import get_logger
-from logic import ChamberParameters, SESSION
+from depracated.utils import get_logger
+from depracated.src.logic import ChamberParameters, SESSION
 from logic.database import Measurements
+# [DEPRECATED] BaseArduinoController & create_arduino_controller are legacy host-serial controllers.
+# All commands now go through self.raspberry (RaspberryController) over HTTP REST.
 from .arduino import BaseArduinoController, create_arduino_controller
 from .raspberry import RaspberryController
 
@@ -46,6 +48,8 @@ class ChamberConfig:
         self.sensor_delay = sensor_delay
         self.camera_frequency = camera_frequency
 
+        # [DEPRECATED] self.arduino is a remnant of host-serial connection.
+        # Chamber now uses self.raspberry._send_to_rpi() to control Arduino via RPi REST API.
         self.arduino = create_arduino_controller("None")
         self.raspberry = RaspberryController(img_dir=f"{name}-images")
 
@@ -114,6 +118,9 @@ class ChamberConfig:
 
     @classmethod
     def from_config_params(cls, parameters: ChamberParameters) -> "ChamberConfig":
+        if parameters.rpi_address:
+            config.raspberry.url = parameters.rpi_address
+        
         return cls(
             name=parameters.chamber_name,
             light_start_hour=parameters.light_start_hour,
@@ -124,6 +131,8 @@ class ChamberConfig:
             pump_duration_seconds=parameters.pump_duration_seconds,
             sensor_delay=parameters.sensor_delay,
             camera_frequency=parameters.camera_frequency,
+            rpi_address = parameters.raspberry
+            
         )
 
     def to_config_params(self) -> ChamberParameters:
@@ -138,8 +147,10 @@ class ChamberConfig:
             pump_duration_seconds=self.pump_duration_seconds,
             sensor_delay=self.sensor_delay,
             camera_frequency=self.camera_frequency,
+            rpi_address = self.raspberry.url
         )
 
+    # [DEPRECATED] Host-level arduino getter/setter. Replaced by RaspberryController.
     @property
     def arduino(self):
         return self._arduino

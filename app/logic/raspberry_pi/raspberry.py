@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from datetime import datetime, timedelta
-from client.utils import get_logger
+from depracated.utils import get_logger
 
 
 class RaspberryController:

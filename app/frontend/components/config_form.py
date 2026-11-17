@@ -1,6 +1,6 @@
 from collections.abc import Callable
 import streamlit as st
-from serial.tools.list_ports import comports
+# from serial.tools.list_ports import comports
 from serial.tools.list_ports_common import ListPortInfo
 import requests  # DODANE: Import biblioteki do komunikacji sieciowej
 

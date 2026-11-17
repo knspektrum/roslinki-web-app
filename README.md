@@ -1,5 +1,7 @@
 # Plant Chamber Web App
 
-## Uruchamianie
+### Depracated mark
 
-TODO: opisać proces uruchamiania
+- models.py
+- arduino.py
+- chamber.py

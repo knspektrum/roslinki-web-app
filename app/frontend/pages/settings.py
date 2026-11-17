@@ -2,7 +2,7 @@ import streamlit as st
 
 from client import components
 from client.components.authorization import after_login
-from logic.shared import CHAMBER_NAMES
+from depracated.src.logic.shared import CHAMBER_NAMES
 
 st.set_page_config(layout="centered")
 st.title("Chamber settings")

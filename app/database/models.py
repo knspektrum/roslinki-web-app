@@ -1,20 +1,8 @@
 from datetime import datetime
-import sqlalchemy as sa
-from pathlib import Path
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-    sessionmaker,
-    declarative_base,
-    DeclarativeMeta,
-)
 
-Base: DeclarativeMeta = declarative_base()
+from sqlalchemy.orm import Mapped, mapped_column
 
-database_file = Path("data", "database.db")
-DB = sa.create_engine(f"sqlite:///{database_file}")
-SESSION = sessionmaker(DB)
-
+from app.database import Base
 
 class ChamberParameters(Base):
     __tablename__ = "chamber_parameters"
@@ -23,6 +11,8 @@ class ChamberParameters(Base):
     chamber_name: Mapped[str] = mapped_column(index=True)
 
     date: Mapped[datetime]
+    
+    rpi_address: Mapped[str] = mapped_column(default="127.0.0.1:5003")
     
     # --- NOWE KOLUMNY HARMONOGRAMU ---
     light_start_hour: Mapped[int]
@@ -44,12 +34,16 @@ class ChamberParameters(Base):
                 f"Kamera: co {self.camera_frequency}s | Czujniki: co {self.sensor_delay}s>")
 
 
-class ChamberSettings(Base):
-    __tablename__ = "chamber_settings"
-    id: Mapped[int] = mapped_column(primary_key=True, index=True, unique=True)
-    chamber_name: Mapped[str] = mapped_column(index=True)
+# [DEPRECATED] ChamberSettings is obsolete:
+# It stored local host serial ports (arduino_port). With the Raspberry Pi architecture,
+# Arduino is connected to the RPi (/dev/ttyUSB0), and the app connects over HTTP to the RPi.
+# Chamber parameters and schedule are stored in ChamberParameters.
+# class ChamberSettings(Base):
+#     __tablename__ = "chamber_settings"
+#     id: Mapped[int] = mapped_column(primary_key=True, index=True, unique=True)
+#     chamber_name: Mapped[str] = mapped_column(index=True)
 
-    arduino_port: Mapped[str]
+#     arduino_port: Mapped[str]
 
 
 class Measurements(Base):
@@ -64,6 +58,3 @@ class Measurements(Base):
 
     def __repr__(self) -> str:
         return f"<{self.date} | {self.chamber_name} | temperature: {self.temperature}, humidity={self.humidity}, light intensity={self.light_intensity}>"
-
-
-Base.metadata.create_all(DB)

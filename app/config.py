@@ -1,0 +1,25 @@
+import os
+from pathlib import Path
+
+import logging as log
+
+#---- LOGGING ----
+
+log.basicConfig(
+    filemode= "a",
+    filename= "main_log",
+    level= log.DEBUG,
+    # format= "",
+)
+
+#---- END LOGGING ----
+
+#---- PATHS ----
+
+ROOT_FOLDER = Path(__file__).resolve().parent
+STATIC_FOLDER = Path(ROOT_FOLDER / "app" / "frontend" / "static")
+FRONTEND_FOLDER = Path(ROOT_FOLDER / "app" / "frontend")
+PAGES_FOLDER = Path(ROOT_FOLDER / "app" / "frontend" / "pages")
+DATABASE_FILE = Path(ROOT_FOLDER / "data" / "database.db")
+
+#---- END PATHS ----

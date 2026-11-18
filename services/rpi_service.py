@@ -1,14 +1,14 @@
 import io
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
+import time
+import serial
 import tempfile
 import threading
-import time
 from datetime import datetime
 from flask import Flask, jsonify, request, send_file
-import serial
 
 
 SERVICE_VERSION = "0.1.0"

@@ -1,11 +1,14 @@
-import streamlit as st
 import pandas as pd
 import altair as alt
-from logic import SESSION, Measurements
+import streamlit as st
+
+from app.database.connection import SESSION
+from app.database.models import Measurements
 
 
 def time_series():
     col1, col2 = st.columns([1, 3])
+    
     with col1:
         chamber_names = st.multiselect(
             "Chambers", ["Chamber-1", "Chamber-2"], default=["Chamber-1"]

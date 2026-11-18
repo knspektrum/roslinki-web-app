@@ -51,7 +51,8 @@ class RaspberryController:
 
     def health_check(self) -> bool:
         try:
-            r = requests.post(f"{self.url}/health", timeout=30)
+            r = requests.get(f"http://{self.url}/health", timeout=10)
+            return r.status_code == 200
         except Exception:
             return False
         return r.status_code == 200

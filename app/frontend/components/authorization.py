@@ -5,19 +5,23 @@ import yaml
 import streamlit_authenticator as stauth
 import streamlit as st
 
-st.session_state["logout"] = None
+# st.session_state["logout"] = None
 
 with open(Path(".secrets", "config.yaml")) as file:
     _config = yaml.load(file, Loader=yaml.SafeLoader)
 
 RANKS = Literal["admin", "maintainer", "user"]
 
-AUTHENTICATOR = stauth.Authenticate(
-    _config["credentials"],
-    _config["cookie"]["name"],
-    _config["cookie"]["key"],
-    _config["cookie"]["expiry_days"],
-)
+@st.cache_resource
+def get_auth():
+    return stauth.Authenticate(
+        _config["credentials"],
+        _config["cookie"]["name"],
+        _config["cookie"]["key"],
+        _config["cookie"]["expiry_days"],
+    )
+    
+AUTHENTICATOR = get_auth()
 
 
 def after_login(func: Callable[[], None], required_role: RANKS):

@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 from app.frontend.components import authorization
 
-authorization = importlib.import_module("client.components.authorization")
+authorization = importlib.import_module("frontend.components.authorization")
 
 
 st.set_page_config(

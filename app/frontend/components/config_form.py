@@ -1,12 +1,12 @@
 from collections.abc import Callable
+
+import requests
 import streamlit as st
 
-
-import requests  # DODANE: Import biblioteki do komunikacji sieciowej
-
-from client.utils import get_logger
 from logic import get_shared
-from logic.chamber import Field
+from logic.chamber.chamber import Field
+from app.frontend.utils import get_logger
+
 
 def callback_generator(chamber: str, reader: list[Field]) -> Callable:
     logger = get_logger(chamber)
@@ -30,15 +30,10 @@ def callback_generator(chamber: str, reader: list[Field]) -> Callable:
             )
         )
 
-
     return callback
 
 
 def config_form(chamber: str):
-    
-    
-    
-    
     config = get_shared()[chamber]
     
     with st.form(f"{chamber}-settings"):

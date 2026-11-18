@@ -1,6 +1,7 @@
-import streamlit as st
-import pandas as pd
 import importlib
+import pandas as pd
+import streamlit as st
+from app.frontend.components import authorization
 
 authorization = importlib.import_module("client.components.authorization")
 

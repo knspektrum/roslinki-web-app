@@ -191,44 +191,58 @@ class Chamber:
             self.logger.error(f"Błąd wysyłania komendy '{cmd}' do RPi: {e}")
             return None
 
-    def manage_lights(self, current_time: datetime):
+    def is_within_light_schedule(self, current_time: datetime) -> bool:
+        """Sprawdza, czy obecna godzina mieści się w zdefiniowanym harmonogramie świecenia."""
         with self.config:
             start_h = self.config.light_start_hour
             start_m = self.config.light_start_minute
             duration_h = self.config.light_duration_hours
             duration_m = self.config.light_duration_minutes
-            
-        # Przeliczamy czasy na łączną liczbę minut od północy
+
         start_mins = start_h * 60 + start_m
         duration_mins = duration_h * 60 + duration_m
         current_mins = current_time.hour * 60 + current_time.minute
-        
-        # Minuta, w której światło ma zgasnąć
         end_mins = (start_mins + duration_mins) % (24 * 60)
-        
-        # Logika sprawdzania, czy obecnie jest "dzień"
-        should_be_on = False
-        if start_mins <= end_mins:
-            if start_mins <= current_mins < end_mins:
-                should_be_on = True
-        else: 
-            if current_mins >= start_mins or current_mins < end_mins:
-                should_be_on = True
 
-        # Jeśli stan faktyczny nie zgadza się ze statusem, przełączamy przekaźnik
+        if start_mins <= end_mins:
+            return start_mins <= current_mins < end_mins
+        return current_mins >= start_mins or current_mins < end_mins
+
+    def manage_light_by_lux(self, current_time: datetime, max_lux_threshold: float = 500.0) -> None:
+        """
+        Steruje światłem magenta (doświetlaniem roślin) na podstawie harmonogramu i natężenia światła:
+        - Włącza światło tylko wtedy, gdy trwa dzień wg harmonogramu ORAZ natężenie światła jest poniżej progu (500 lx).
+        - Wyłącza światło, gdy minął czas świecenia wg harmonogramu LUB natężenie światła wynosi >= 500 lx.
+        """
+        schedule_active = self.is_within_light_schedule(current_time)
+        current_lux = self.config.last_light_intensity
+
+        should_be_on = False
+        if schedule_active:
+            # Jeśli brak jeszcze odczytu z czujnika (None), domyślnie włączamy wg harmonogramu
+            if current_lux is None or current_lux < max_lux_threshold:
+                should_be_on = True
+            else:
+                self.logger.debug(
+                    f"Harmonogram aktywny, ale światło ({current_lux:.1f} lx) >= {max_lux_threshold} lx. Wyłączam doświetlanie."
+                )
+
         if should_be_on and not self.is_light_on:
-            self.logger.info("Harmonogram: Włączam światło")
-            res = self._send_to_rpi("L") 
+            self.logger.info(f"Harmonogram/Lux: Włączam światło magenta (lux: {current_lux})")
+            res = self._send_to_rpi("L")
             if res and res.get("status") == "ok":
                 self.is_light_on = True
                 self.config.is_light_on = True
-            
+
         elif not should_be_on and self.is_light_on:
-            self.logger.info("Harmonogram: Wyłączam światło")
-            res = self._send_to_rpi("D") 
+            self.logger.info(f"Harmonogram/Lux: Wyłączam światło magenta (lux: {current_lux}, harmonogram: {schedule_active})")
+            res = self._send_to_rpi("D")
             if res and res.get("status") == "ok":
                 self.is_light_on = False
                 self.config.is_light_on = False
+
+    def manage_lights(self, current_time: datetime):
+        self.manage_light_by_lux(current_time, max_lux_threshold=500.0)
 
     def manage_pump(self, current_time: datetime):
         with self.config:
@@ -264,6 +278,9 @@ class Chamber:
                         self.config.last_humidity = humidity
                         self.config.last_light_intensity = light_intensity
                         self.config.last_sensor_reading_time = datetime.now()
+
+                    # Natychmiastowa regulacja oświetlenia na podstawie nowego odczytu lux
+                    self.manage_light_by_lux(datetime.now())
             except ValueError:
                 self.logger.error("Błąd parsowania danych z czujników!")
 

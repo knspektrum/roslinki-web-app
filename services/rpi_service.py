@@ -11,7 +11,7 @@ from datetime import datetime
 from flask import Flask, jsonify, request, send_file
 
 
-SERVICE_VERSION = "0.1.0"
+SERVICE_VERSION = "0.1.1"
 DEFAULT_PORT = "/dev/ttyUSB0"
 BAUDRATE = 9600
 

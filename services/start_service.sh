@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /home/<username>/roslinki-web-app
+cd /home/admin/roslinki-web-app
 
 for i in {1..15}; do
     ping -c 1 github.com > /dev/null 2>&1 && break

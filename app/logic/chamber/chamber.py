@@ -49,6 +49,14 @@ class ChamberConfig:
 
         self.raspberry = RaspberryController(img_dir=f"{name}-images")
 
+        # Runtime status variables (accessible in Streamlit)
+        self.is_light_on: bool = False
+        self.is_camera_light_on: bool = False
+        self.last_temperature: float | None = None
+        self.last_humidity: float | None = None
+        self.last_light_intensity: float | None = None
+        self.last_sensor_reading_time: datetime | None = None
+
 
     def reader(self) -> list[Field]:
         return [
@@ -140,7 +148,7 @@ class ChamberConfig:
             chamber_name=self.name,
             date=datetime.now(timezone.utc),
             light_start_hour=self.light_start_hour,
-            light_start_minute=self.light_start_minute,         # POPRAWIONE (usunięte "s" na końcu)
+            light_start_minute=self.light_start_minute,
             light_duration_hours=self.light_duration_hours,
             light_duration_minutes=self.light_duration_minutes,
             pump_start_hour=self.pump_start_hour,
@@ -210,13 +218,17 @@ class Chamber:
         # Jeśli stan faktyczny nie zgadza się ze statusem, przełączamy przekaźnik
         if should_be_on and not self.is_light_on:
             self.logger.info("Harmonogram: Włączam światło")
-            self._send_to_rpi("L") 
-            self.is_light_on = True
+            res = self._send_to_rpi("L") 
+            if res and res.get("status") == "ok":
+                self.is_light_on = True
+                self.config.is_light_on = True
             
         elif not should_be_on and self.is_light_on:
             self.logger.info("Harmonogram: Wyłączam światło")
-            self._send_to_rpi("D") 
-            self.is_light_on = False
+            res = self._send_to_rpi("D") 
+            if res and res.get("status") == "ok":
+                self.is_light_on = False
+                self.config.is_light_on = False
 
     def manage_pump(self, current_time: datetime):
         with self.config:
@@ -246,6 +258,12 @@ class Chamber:
                     temperature = float(parts[0])
                     humidity = float(parts[1])
                     light_intensity = float(parts[2])
+                    
+                    with self.config:
+                        self.config.last_temperature = temperature
+                        self.config.last_humidity = humidity
+                        self.config.last_light_intensity = light_intensity
+                        self.config.last_sensor_reading_time = datetime.now()
             except ValueError:
                 self.logger.error("Błąd parsowania danych z czujników!")
 
@@ -264,7 +282,12 @@ class Chamber:
 
     def take_photo(self):
         with self.config:
+            self.config.is_camera_light_on = True
+        try:
             self.config.raspberry.capture_photo()
+        finally:
+            with self.config:
+                self.config.is_camera_light_on = False
 
 class ChamberManager:
     def __init__(self, configs: dict[str, ChamberConfig]):
@@ -291,4 +314,4 @@ class ChamberManager:
                     chamber.take_photo()
                     chamber.camera_next_run = current_time + timedelta(seconds=chamber.config.camera_frequency)
             
-            time.sleep(1) # Odpoczynek pętli
+            time.sleep(2) # Odpoczynek pętli

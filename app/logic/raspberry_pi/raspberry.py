@@ -55,7 +55,6 @@ class RaspberryController:
             return r.status_code == 200
         except Exception:
             return False
-        return r.status_code == 200
     
     def check_version(self) -> dict | None:
         try:

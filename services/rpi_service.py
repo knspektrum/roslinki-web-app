@@ -24,11 +24,19 @@ def get_arduino_connection() -> None | serial.Serial:
     """Tries to connect or re-connect to the Arduino if disconnected."""
     global arduino
     with serial_lock:
-        if arduino and arduino.is_open:
-            return arduino
+        if arduino:
+            if arduino.is_open and arduino.port and os.path.exists(arduino.port):
+                return arduino
+            try:
+                arduino.close()
+            except Exception:
+                pass
+            arduino = None
 
         candidate_ports = [DEFAULT_PORT, "/dev/ttyACM0", "/dev/ttyUSB1"]
         for port in candidate_ports:
+            if not os.path.exists(port):
+                continue
             try:
                 arduino = serial.Serial(port, BAUDRATE, timeout=2)
                 time.sleep(2)
@@ -135,6 +143,13 @@ def arduino_command():
             )
             
         except Exception as e:
+            global arduino
+            if arduino:
+                try:
+                    arduino.close()
+                except Exception:
+                    pass
+                arduino = None
             return jsonify(
                 {"status": "error", "error": str(e)}
             ), 500
